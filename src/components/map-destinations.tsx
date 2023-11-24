@@ -11,8 +11,9 @@ const MapDestinations = observer(() => {
             {ctx.destinationPoints.map((p, index) => (
                 p.location && (
                     <MapMarker
+                        label={String.fromCharCode(66 + index)}
                         key={p.location.lng}
-                        position={p.location}
+                        point={p}
                         onDragEnd={(location) => ctx.handleOnDrugEndDestinationPoint(location, index)}
                     />
                 )

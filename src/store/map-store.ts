@@ -1,5 +1,6 @@
 import {makeAutoObservable, runInAction} from "mobx";
-import {Point} from "../models";
+import {DirectionMode, Point, Route} from "../models";
+
 
 class MapStore {
     map: google.maps.Map | null = null
@@ -8,6 +9,9 @@ class MapStore {
     destinationPoints: Point[] = []
     isAdditionalButton: boolean = true
     directions: google.maps.DirectionsResult | null = null
+    directionMode: DirectionMode = DirectionMode.OPTIMAL
+    isBackDirection: boolean = false
+    isRouteComplete: boolean = false
 
     constructor() {
         makeAutoObservable(this)
@@ -60,6 +64,20 @@ class MapStore {
                 this.startPoint.isValid = true
             })
 
+
+            if(this.destinationPoints.length === 0) {
+                runInAction(() => {
+                    this.isAdditionalButton = true
+                })
+            } else {
+                const isValid = this.checkIsAllPointValid();
+
+
+                runInAction(() => {
+                    this.isAdditionalButton = isValid
+                })
+            }
+
             this.moveCamera({lat: lat(), lng: lng()})
             await this.calculateRoutes()
         } catch (error) {
@@ -99,7 +117,7 @@ class MapStore {
     }
 
     checkIsAllPointValid(): boolean {
-        if(this.destinationPoints.length === 0) {
+        if (this.destinationPoints.length === 0) {
             return false;
         }
 
@@ -126,13 +144,15 @@ class MapStore {
     handleChangeStartPointName(address: string) {
         this.startPoint.isValid = false;
         this.changeStartPointAddress(address)
-        this.calculateRoutes();
+        this.directions = null
+        this.setIsRouteComplete(false)
     }
 
     handleChangeDestinationPointName(address: string, index: number) {
         this.destinationPoints[index].address = address
         this.destinationPoints[index].isValid = false
-        this.calculateRoutes();
+        this.directions = null
+        this.setIsRouteComplete(false)
 
         runInAction(() => {
             this.isAdditionalButton = false
@@ -149,9 +169,10 @@ class MapStore {
     }
 
     async calculateRoutes() {
-        if(!this.checkIsAllPointValid()) {
+        if (!this.checkIsAllPointValid()) {
             console.log("Can't build the routes")
             this.directions = null
+            this.setIsRouteComplete(false)
             return
         }
 
@@ -159,7 +180,7 @@ class MapStore {
 
         const origin = this.startPoint.location!
 
-        const destination = this.destinationPoints[this.destinationPoints.length - 1].location!
+        let destination = this.destinationPoints[this.destinationPoints.length - 1].location!
 
         const waypoints: google.maps.DirectionsWaypoint[] = this.destinationPoints.map(p => {
             return {
@@ -167,17 +188,56 @@ class MapStore {
             }
         });
 
-        waypoints.pop()
+        if(!this.isBackDirection) {
+            waypoints.pop()
+        } else {
+            destination = this.startPoint.location!
+        }
 
         try {
-            const request: google.maps.DirectionsRequest = {origin, waypoints, destination, travelMode: google.maps.TravelMode.DRIVING}
+            const request: google.maps.DirectionsRequest =
+                {
+                    origin,
+                    waypoints,
+                    destination,
+                    travelMode: google.maps.TravelMode.DRIVING,
+                }
+
+            switch (this.directionMode) {
+                case DirectionMode.DISTANCE:
+                    request.drivingOptions = {
+                        departureTime: new Date(),
+                        trafficModel: google.maps.TrafficModel.BEST_GUESS,
+                    }
+                    break;
+                case DirectionMode.SPEED:
+                    request.optimizeWaypoints = true
+                    break;
+            }
+
 
             const result = await directionsService.route(request)
 
             runInAction(() => {
                 this.directions = result
             })
+
+            let index = 0
+
+            for (const leg of result.routes[0].legs) {
+                let distance = leg.distance?.value || 0
+                let duration = leg.duration?.value || 0
+
+                distance = Math.round(distance / 100) / 10;
+
+                const route: Route = {distance, duration, address: ""}
+                this.addRouteToPoints(route, index++)
+            }
+
+            this.setIsRouteComplete(true)
         } catch (error) {
+            this.directions = null
+            this.setIsRouteComplete(false)
             console.log("Error calculate routes: ", error)
         }
     }
@@ -193,6 +253,38 @@ class MapStore {
         }
     }
 
+    addRouteToPoints(route: Route, index: number) {
+        if (index === 0) {
+            runInAction(() => {
+                route.address = this.destinationPoints[index].address
+                this.startPoint.toRoute = route
+
+                route.address = this.startPoint.address
+                this.destinationPoints[index].fromRoute = route
+            })
+            return;
+        }
+
+        if(index === this.destinationPoints.length && this.isBackDirection) {
+            runInAction(() => {
+                route.address = this.startPoint.address;
+                this.destinationPoints[index - 1].toRoute = route
+
+                route.address = this.destinationPoints[index - 1].address;
+                this.startPoint.fromRoute = route;
+            })
+            return;
+        }
+
+        runInAction(() => {
+            route.address = this.destinationPoints[index].address
+            this.destinationPoints[index - 1].toRoute = route
+
+            route.address = this.destinationPoints[index - 1].address
+            this.destinationPoints[index].fromRoute = route
+        })
+    }
+
     async getGeocodeFormLocation(location: google.maps.LatLngLiteral): Promise<google.maps.GeocoderResult> {
         const geocoder = new google.maps.Geocoder();
         try {
@@ -204,8 +296,64 @@ class MapStore {
         }
     }
 
+    setDirectionMode(mode: DirectionMode) {
+        runInAction(() => {
+            this.directionMode = mode
+        })
+
+        this.calculateRoutes()
+    }
+
+
+    setIsBackDirection(bool: boolean) {
+        runInAction(() => {
+            this.isBackDirection = bool
+        })
+
+        this.calculateRoutes()
+    }
+
     setMap(map: google.maps.Map) {
         this.map = map
+    }
+
+    deleteStartPoint() {
+        runInAction(() => {
+            this.startPoint.address = ""
+            this.startPoint.isValid = false
+            this.startPoint.location = undefined
+        })
+
+       if(this.destinationPoints.length === 0) {
+           runInAction(() => {
+               this.isAdditionalButton = true
+           })
+       }
+
+
+
+        this.calculateRoutes()
+    }
+
+    deleteDestinationPoint(index: number) {
+        this.destinationPoints = this.destinationPoints.filter((p, i) => i !== index)
+
+        if(this.destinationPoints.length === 0) {
+            runInAction(() => {
+                this.isAdditionalButton = true
+            })
+        } else {
+            const isValid = this.checkIsAllPointValid()
+            runInAction(() => {
+                this.isAdditionalButton = isValid
+            })
+        }
+
+        this.calculateRoutes()
+    }
+
+    setIsRouteComplete(bool: boolean) {
+        this.isRouteComplete = bool
     }
 }
 

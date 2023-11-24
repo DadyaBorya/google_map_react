@@ -14,6 +14,8 @@ const MapPage = () => {
         libraries
     })
 
+
+
     if (!isLoaded) {
         return <div>Loading...</div>
     }

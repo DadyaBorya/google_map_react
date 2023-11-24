@@ -1,35 +1,28 @@
 import React from 'react';
-import MapInput from "./map-input";
 import {observer} from "mobx-react-lite";
 import {useMapStore} from "../context/map-store-context";
+import MapDirectionMapMode from "./map-direction-map-mode";
+import MapListInputs from "./map-list-inputs";
 
 const MapPanel = observer(() => {
     const ctx = useMapStore()
 
 
     return (
-        <div className="h-100 shadow rounded-2 p-2">
-            <MapInput
-                value={ctx.startPoint.address}
-                onChange={(address) => ctx.handleChangeStartPointName(address)}
-                onSubmit={(address) => ctx.handleSubmitStartPointName(address)}
-            />
-
-            {ctx.destinationPoints.map((p, index) => (
-                <MapInput
-                    key={index}
-                    value={p.address}
-                    onChange={(address) => ctx.handleChangeDestinationPointName(address, index)}
-                    onSubmit={(address) => ctx.handleSubmitDestinationPointName(address, index)}
-                />
-            ))}
-
-            <button
-                disabled={!ctx.isAdditionalButton}
-                className="btn btn-secondary w-100"
-                onClick={() => ctx.handleClickAdditionalButton()}
-            >Додати місце прибуття
-            </button>
+        <div className="h-100 shadow rounded-2 p-2 d-flex flex-column justify-content-between">
+           <div className="h-100" style={{overflowY: "auto"}}>
+               <MapListInputs/>
+           </div>
+            <div>
+                <button
+                    disabled={!ctx.isAdditionalButton}
+                    className="btn btn-secondary w-100 mb-3"
+                    onClick={() => ctx.handleClickAdditionalButton()}
+                >
+                    Додати місце прибуття
+                </button>
+                <MapDirectionMapMode/>
+            </div>
         </div>
     );
 });

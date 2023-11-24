@@ -10,7 +10,8 @@ const MapStartMarker = observer(() => {
        <>
            {ctx.startPoint.location && (
                <MapMarker
-                   position={ctx.startPoint.location}
+                   label={String.fromCharCode(65)}
+                   point={ctx.startPoint}
                    onDragEnd={(location) => ctx.handleOnDrugEndStartPoint(location)}
                />
            )}
