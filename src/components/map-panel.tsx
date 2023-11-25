@@ -9,7 +9,9 @@ const MapPanel = observer(() => {
 
 
     return (
-        <div className="h-100 shadow rounded-2 p-2 d-flex flex-column justify-content-between">
+        <div className="h-100 rounded-2 p-2 d-flex flex-column justify-content-between"
+             style={{background: "#E4E4E4", border: "1px solid #727272", borderRadius: "15px"}}
+        >
            <div className="h-100" style={{overflowY: "auto"}}>
                <MapListInputs/>
            </div>

@@ -14,24 +14,25 @@ const MapPage = () => {
         libraries
     })
 
-
-
     if (!isLoaded) {
         return <div>Loading...</div>
     }
 
     return (
         <MapStoreContext.Provider value={mapStore}>
-            <div className="container d-flex justify-content-center p-5" style={{height: "100vh"}}>
-                <div className="row w-100">
-                    <div className="col-5">
-                        <MapPanel/>
-                    </div>
-                    <div className="col-7">
-                        <Map/>
+            <div style={{background: "#FFFEF8"}}>
+                <div className="container d-flex justify-content-center p-5" style={{height: "100vh"}}>
+                    <div className="row w-100">
+                        <div className="col-5">
+                            <MapPanel/>
+                        </div>
+                        <div className="col-7">
+                            <Map/>
+                        </div>
                     </div>
                 </div>
             </div>
+
         </MapStoreContext.Provider>
     );
 };

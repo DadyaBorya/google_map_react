@@ -38,7 +38,7 @@ const MapListInputsItem: FC<IMapListInputsItem> = observer(({point, index}) => {
 
     return (
         <MapInput
-            value={point.address}
+            value={point.formattedAddress}
             onChange={(address) => handleOnChange(address)}
             onSubmit={(address) => handleOnSubmit(address)}
             onDelete={() => handleOnDelete()}

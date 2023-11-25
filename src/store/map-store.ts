@@ -1,17 +1,18 @@
 import {makeAutoObservable, runInAction} from "mobx";
-import {DirectionMode, Point, Route} from "../models";
+import {AddressComponent, DirectionMode, Point, Route} from "../models";
 
 
 class MapStore {
     map: google.maps.Map | null = null
     startPosition: google.maps.LatLngLiteral = {lat: 50.4546, lng: 30.5238}
-    startPoint: Point = {address: ""} as Point
+    startPoint: Point = {formattedAddress: ""} as Point
     destinationPoints: Point[] = []
     isAdditionalButton: boolean = true
     directions: google.maps.DirectionsResult | null = null
     directionMode: DirectionMode = DirectionMode.OPTIMAL
     isBackDirection: boolean = false
     isRouteComplete: boolean = false
+    isInfoOpen: boolean = false
 
     constructor() {
         makeAutoObservable(this)
@@ -23,8 +24,9 @@ class MapStore {
 
             runInAction(() => {
                 this.startPoint.location = location
-                this.startPoint.address = geo.formatted_address;
+                this.startPoint.formattedAddress = geo.formatted_address;
                 this.startPoint.isValid = true
+                this.startPoint.addressComponent = this.geocoderResultToAddressComponent(geo)
             })
             await this.calculateRoutes()
         } catch (error) {
@@ -38,11 +40,11 @@ class MapStore {
     async handleOnDrugEndDestinationPoint(location: google.maps.LatLngLiteral, index: number) {
         try {
             const geo = await this.getGeocodeFormLocation(location);
-            console.log(geo)
             runInAction(() => {
                 this.destinationPoints[index].location = location
-                this.destinationPoints[index].address = geo.formatted_address;
+                this.destinationPoints[index].formattedAddress = geo.formatted_address;
                 this.destinationPoints[index].isValid = true
+                this.destinationPoints[index].addressComponent = this.geocoderResultToAddressComponent(geo)
             })
             await this.calculateRoutes()
         } catch (error) {
@@ -60,8 +62,9 @@ class MapStore {
 
             runInAction(() => {
                 this.startPoint.location = {lat: lat(), lng: lng()}
-                this.startPoint.address = geo.formatted_address;
+                this.startPoint.formattedAddress = geo.formatted_address;
                 this.startPoint.isValid = true
+                this.startPoint.addressComponent = this.geocoderResultToAddressComponent(geo)
             })
 
 
@@ -71,7 +74,6 @@ class MapStore {
                 })
             } else {
                 const isValid = this.checkIsAllPointValid();
-
 
                 runInAction(() => {
                     this.isAdditionalButton = isValid
@@ -95,8 +97,9 @@ class MapStore {
 
             runInAction(() => {
                 this.destinationPoints[index].location = {lat: lat(), lng: lng()}
-                this.destinationPoints[index].address = geo.formatted_address;
+                this.destinationPoints[index].formattedAddress = geo.formatted_address;
                 this.destinationPoints[index].isValid = true
+                this.destinationPoints[index].addressComponent = this.geocoderResultToAddressComponent(geo)
             })
 
             this.moveCamera({lat: lat(), lng: lng()})
@@ -133,7 +136,7 @@ class MapStore {
 
     handleClickAdditionalButton() {
         this.destinationPoints.push(
-            {address: ""} as Point
+            {formattedAddress: ""} as Point
         );
 
         runInAction(() => {
@@ -149,7 +152,7 @@ class MapStore {
     }
 
     handleChangeDestinationPointName(address: string, index: number) {
-        this.destinationPoints[index].address = address
+        this.destinationPoints[index].formattedAddress = address
         this.destinationPoints[index].isValid = false
         this.directions = null
         this.setIsRouteComplete(false)
@@ -160,7 +163,7 @@ class MapStore {
     }
 
     changeStartPointAddress(address: string) {
-        this.startPoint.address = address;
+        this.startPoint.formattedAddress = address;
     }
 
     moveCamera(place: google.maps.LatLngLiteral) {
@@ -189,6 +192,8 @@ class MapStore {
         });
 
         if(!this.isBackDirection) {
+            this.startPoint.fromRoute = undefined
+            this.destinationPoints[this.destinationPoints.length - 1].toRoute = undefined
             waypoints.pop()
         } else {
             destination = this.startPoint.location!
@@ -215,7 +220,6 @@ class MapStore {
                     break;
             }
 
-
             const result = await directionsService.route(request)
 
             runInAction(() => {
@@ -224,13 +228,16 @@ class MapStore {
 
             let index = 0
 
+            console.log(result)
+
             for (const leg of result.routes[0].legs) {
                 let distance = leg.distance?.value || 0
+                let distanceString = leg.distance?.text || ""
+
                 let duration = leg.duration?.value || 0
+                let durationString = leg.duration?.text || ""
 
-                distance = Math.round(distance / 100) / 10;
-
-                const route: Route = {distance, duration, address: ""}
+                const route: Route = {distance, duration, distanceString, durationString, address: ""}
                 this.addRouteToPoints(route, index++)
             }
 
@@ -246,6 +253,7 @@ class MapStore {
         const geocoder = new google.maps.Geocoder();
         try {
             const response = await geocoder.geocode({address});
+            this.geocoderResultToAddressComponent(response.results[0])
             return response.results[0]
         } catch (error) {
             console.error('Error during geocoding:', error);
@@ -253,13 +261,24 @@ class MapStore {
         }
     }
 
+    geocoderResultToAddressComponent(result: google.maps.GeocoderResult): AddressComponent {
+        const addressComponent = {} as any
+
+        for (const component of result.address_components) {
+            const type = component.types[0];
+            addressComponent[type] = component.long_name;
+        }
+
+        return addressComponent as AddressComponent
+    }
+
     addRouteToPoints(route: Route, index: number) {
         if (index === 0) {
             runInAction(() => {
-                route.address = this.destinationPoints[index].address
+                route.address = this.destinationPoints[index].formattedAddress
                 this.startPoint.toRoute = route
 
-                route.address = this.startPoint.address
+                route.address = this.startPoint.formattedAddress
                 this.destinationPoints[index].fromRoute = route
             })
             return;
@@ -267,20 +286,20 @@ class MapStore {
 
         if(index === this.destinationPoints.length && this.isBackDirection) {
             runInAction(() => {
-                route.address = this.startPoint.address;
+                route.address = this.startPoint.formattedAddress;
                 this.destinationPoints[index - 1].toRoute = route
 
-                route.address = this.destinationPoints[index - 1].address;
+                route.address = this.destinationPoints[index - 1].formattedAddress;
                 this.startPoint.fromRoute = route;
             })
             return;
         }
 
         runInAction(() => {
-            route.address = this.destinationPoints[index].address
+            route.address = this.destinationPoints[index].formattedAddress
             this.destinationPoints[index - 1].toRoute = route
 
-            route.address = this.destinationPoints[index - 1].address
+            route.address = this.destinationPoints[index - 1].formattedAddress
             this.destinationPoints[index].fromRoute = route
         })
     }
@@ -309,7 +328,6 @@ class MapStore {
         runInAction(() => {
             this.isBackDirection = bool
         })
-
         this.calculateRoutes()
     }
 
@@ -319,7 +337,7 @@ class MapStore {
 
     deleteStartPoint() {
         runInAction(() => {
-            this.startPoint.address = ""
+            this.startPoint.formattedAddress = ""
             this.startPoint.isValid = false
             this.startPoint.location = undefined
         })
@@ -354,6 +372,50 @@ class MapStore {
 
     setIsRouteComplete(bool: boolean) {
         this.isRouteComplete = bool
+    }
+
+    setIsInfoOpen(bool: boolean) {
+        this.isInfoOpen = bool
+    }
+
+    getSumDistanceString(): string {
+        let sum = this.startPoint.toRoute?.distance || 0;
+
+        this.destinationPoints.forEach(p => {
+            sum += p.toRoute?.distance || 0;
+        });
+
+        sum /= 1000
+
+        return `${sum.toFixed(0)} км`;
+    }
+
+    getSumDurationString(): string {
+        let sum = this.startPoint.toRoute?.duration || 0;
+
+        this.destinationPoints.forEach(p => {
+            sum += p.toRoute?.duration || 0;
+        })
+
+        const days = Math.floor(sum / (24 * 3600));
+        const hours = Math.floor((sum % (24 * 3600)) / 3600);
+        const minutes = Math.floor((sum % 3600) / 60);
+
+        let result = ""
+
+        if(days > 0) {
+            result += `${days} д `
+        }
+
+        if(hours > 0) {
+            result += `${hours} год `
+        }
+
+        if (minutes > 0) {
+            result += `${minutes} хв`
+        }
+
+        return result
     }
 }
 

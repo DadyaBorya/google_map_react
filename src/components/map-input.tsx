@@ -46,7 +46,7 @@ const MapInput: FC<IMapInput> = observer(({value, onChange, onSubmit, onDelete, 
                        value={value}
                        onChange={(e) => onChange(e.target.value)}
                        type="text"
-                       className="w-100 py-2 ps-2 pe-5 rounded-2"
+                       className="w-100 py-2 ps-2 pe-5 rounded-2 border-0"
                        placeholder={placeholder}
                    />
                    <div

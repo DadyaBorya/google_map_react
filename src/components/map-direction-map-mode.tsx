@@ -10,19 +10,22 @@ const MapDirectionMapMode = observer(() => {
         <div>
             <div className="w-100 d-flex flex-row mb-3 ">
                 <button
-                    className={`w-100 small py-2 border-0 rounded-start-2 ${ctx.directionMode === DirectionMode.OPTIMAL ? "text-white bg-success" : "bg-light"}`}
+                    className={`w-100 small py-2 border-0 rounded-start-2`}
+                    style={ctx.directionMode === DirectionMode.OPTIMAL ? {background: "#4338d0", color: "white"} : {background: "#f8f9fa"}}
                     onClick={() => ctx.setDirectionMode(DirectionMode.OPTIMAL)}
                 >
                     Оптимальний
                 </button>
                 <button
-                    className={`w-100 small py-2 border-0  ${ctx.directionMode === DirectionMode.SPEED ? "text-white bg-success" : "bg-light"}`}
+                    className={`w-100 small py-2 border-0`}
+                    style={ctx.directionMode === DirectionMode.SPEED ? {background: "#4338d0", color: "white"} : {background: "#f8f9fa"}}
                     onClick={() => ctx.setDirectionMode(DirectionMode.SPEED)}
                 >
                     Мінімальний час
                 </button>
                 <button
-                    className={`w-100 small py-2 border-0 rounded-end-2 ${ctx.directionMode === DirectionMode.DISTANCE ? "text-white bg-success" : "bg-light"}`}
+                    className={`w-100 small py-2 border-0 rounded-end-2`}
+                    style={ctx.directionMode === DirectionMode.DISTANCE ? {background: "#4338d0", color: "white"} : {background: "#f8f9fa"}}
                     onClick={() => ctx.setDirectionMode(DirectionMode.DISTANCE)}
                 >
                     Мінімальна відстань
